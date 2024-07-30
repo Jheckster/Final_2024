@@ -18,13 +18,108 @@ FinalDat <-read.csv(file="finalSumr2024.csv",header=TRUE)
 FinalData <- FinalDat  %>% select(-one_of("X"))
 FinalData <- FinalData %>%
 mutate(across(where(is.character), as.factor))
+FinalData$treatment <- relevel(FinalData$treatment,ref="placebo")
+#FinalData$infected <- relevel(FinalData$infected,ref="OK")
+guy = filter(FinalData, sex =="guy")
+gal = filter(FinalData, sex =="gal")
+gay = filter(FinalData, LGBTQ =="gay")
+Druguser = filter(FinalData, DrugUser =="yes")
 ```
 
 # Introduction
 
 A new  preventative vaccine (covid921) is under test in clinical trials. Given the nature of this vaccine it is suspected that the drug may exhibit different effectiveness across the variety of subpopulations tracked. Consider population subgroups by gender( guys and gals), drug use, and sexual orientation. Write a complete report that separately considers this drug for each subgroup and your recommendations as to whether people in the subgroup should take the vaccine. Structure your report in four sections each devoted to one of the four subgroups, use null and alternative hypothesis statements and correct statistical verbage when referencing p-values in conclusions.
 
+# Coding details 
+
+First, the variables from FinalData needed to be changed from character variables into factor variables. the appropriate dplyr code was used to do this. The following code was used to achieve this: 
+
+FinalData <- FinalData %>%
+mutate(across(where(is.character), as.factor))
+
+Next, specific subgroups had to be separated from the broader categories in order to properly studied. Gal and guy were separated into subgroups, as well as gay sexual orientation and people that answered yes to participating in drug use. All of these categories are isolated to see weather or not these particular populations should  or should not take the  new covid-19 vaccine.
+
+
+In order to create the effectiveness interval for all four categories, each group of people in this study had to be stored in separate variables.
+
+
 ## Males
+### Barplot
+
+
+```{r}
+barchartGC(~infected + treatment,data=guy)
+barchartGC(~infected + treatment,data=guy, type="percent")
+
+```
+
+#### Plot barplots ggplot way
+
+```{r}
+dd2 <- FinalData %>% group_by(infected,treatment) %>% summarize(count=n()) %>% mutate(prcnt=count/sum(count))
+
+
+# the group_by followed by summarize(count=n())
+
+basicC <- ggplot(dd2,aes(x=infected,y=count,fill=treatment))
+basicC + geom_bar(stat="identity",position="dodge")
+
+#Now for percentage plot
+
+basicCC <- ggplot(dd2,aes(x=infected,y=prcnt*100,fill=treatment)) 
+basicCC + geom_bar(stat="identity", position = "dodge")
+```  
+Our first observation will be made with a bar plots using the Guys data, to analyze the demographics of the infected percents and the percentage without the vaccine. The code we have available using ggplots, created two bar plots to investigate the treatments effectiveness. 
+
+The first slide is a charted demographic of the infected Guy patients, compared to being given the placebo and the vaccine. Here we can see that the Covid infection numbers on the left are incredibly low in comparison to the second set on the right. This might imply that the drug is effective to people not already displaying symptoms but we will need to observe more to tell.
+
+The second slide displays the drastic percentile differences of the above mentioned results. In this depiction, the placebo in covid patients should less symptoms than the drug. To gain a more accurate number we will approach this in segments to gather inferential and numerical results. 
+
+
+### Numerical results
+
+```{r}
+table1 <- xtabs(~infected + treatment, data=FinalData)
+rowPerc(table1)
+colPerc(table1)
+```
+  
+The first numerical significant data we will analyze will the this simple chart, the code above will display the ratio of infected and placebo-ed patients in the study. Using this count we can determine if there is a preliminary difference based on minimal data. 
+
+In the treatment we are looking for covid positive patients, infected and placebo, who are reactive to the drug they were given. In this chart we can see that out of 100 randomly sampled patients, 42 Covid patients who were given the placebo showed symptoms. On the other hand there were 49 patients who were given the drug also showed symptoms of Covid. 
+
+
+### Inferential 
+
+
+
+```{r}
+chisq.test(table1)
+chisqtestGC(table1)
+guysfish <- fisher.test(table1)
+guysfish
+```
+  
+The first test we will use to differentiate the data in the Gals portion, will be the CHI-Squared and the Fisher test. Using the output of the Guys data, the CHI-Squared test will better format the p-value, the sample estimates and whether or not the alternative hypothesis is true to odds. 
+
+This chart tells us that the p-value is a drastically small number of 6e-04, (0.000000604). The sample estimates, in this case I am referring to 0.68. The confidence interval is 95%. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1. 
+ 
+
+
+```{r}
+effect <- guysfish$p.value/(guysfish$p.value +1)
+effectivenessguy = guysfish$estimate/(guysfish$estimate +1)*100
+print(effectivenessguy)
+```
+
+```{r}
+low=(guysfish$conf.int[1]/(guysfish$conf.int[1] +1))*100
+hi=(guysfish$conf.int[2]/(guysfish$conf.int[2] +1))*100
+options(digits=2)
+```
+
+## Effectiveness Confidence Interval `r low`  to `r hi`
+
 
 
 ## Females
