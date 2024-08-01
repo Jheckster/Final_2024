@@ -265,7 +265,7 @@ options(digits=2)
 
 ## Effectiveness Confidence Interval `r low`  to `r hi`
 
-The odds ratio of this chart shows 0 using this charted information.
+The odds ratio of this chart shows 0 using this charted information. The confidence intervals are currently at a range from `r low`  to `r hi`. 
 
 
 
@@ -413,7 +413,7 @@ print(effect)
 
 ## Effectiveness Confidence Interval `r low`  to `r hi`
 
-The odds ratio of this chart shows 81 using this charted information.
+The odds ratio of this chart shows 81 using this charted information. The confidence intervals are currently at a range from `r low`  to `r hi`.
 
 
 
@@ -515,13 +515,19 @@ hi=(drugfish$conf.int[2]/(drugfish$conf.int[2] +1))*100
 options(digits=2)
 ```
 
-## Effectiveness Confidence Interval `r low`  to `r hi`
+## Effectiveness Confidence Interval 
 
-The odds ratio of this chart shows 8 using this charted information.
+The odds ratio of this chart shows 8 using this charted information. The confidence intervals are currently at a range from `r low`  to `r hi`.
 
 
 
 # Overall Results and Conclusions
+  
+Based on the data above, our hypothesis is positive and there was a drastic difference between patients sets in the gay, guy, and gal test subjects. The limits were proven when they were compared to the inferential data with the vaccine. 
+
+To get this information, multiple plots were made and the use of numerical printed results helped us a gain an understanding of where the data was different. The confidence intervals are currently at a range from `r low`  to `r hi`.
+
+
 
 
 
