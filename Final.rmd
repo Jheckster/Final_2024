@@ -10,21 +10,32 @@ date: "`r Sys.Date()`"
 ---
 
 ```{r include=FALSE,echo=FALSE}
-require(tidyverse)
-require(tigerstats)
-require(forcats)
-FinalDat <-read.csv(file="finalSumr2024.csv",header=TRUE)
-#recode to remove the annoying "X" from the dataframe
-FinalData <- FinalDat  %>% select(-one_of("X"))
+# Load necessary libraries
+library(tidyverse)
+library(forcats)  # Ensure this is needed; it is not used in this snippet
+
+# Read the CSV file
+FinalDat <- read.csv(file = "finalSumr2024.csv", header = TRUE)
+
+# Recode values and remove the unwanted column
+FinalData <- FinalDat %>%
+  mutate(infected = recode(infected, aids = "covid", none = "OK")) %>%
+  select(-X)  # Simplified column removal
+
+# Convert character columns to factors
 FinalData <- FinalData %>%
-mutate(across(where(is.character), as.factor))
-FinalData$treatment <- relevel(FinalData$treatment,ref="placebo")
-#FinalData$infected <- relevel(FinalData$infected,ref="OK")
-guy = filter(FinalData, sex =="guy")
-gal = filter(FinalData, sex =="gal")
-gay = filter(FinalData, LGBTQ =="gay")
-Druguser = filter(FinalData, DrugUser =="yes")
+  mutate(across(where(is.character), as.factor))
+
+# Relevel 'treatment' factor
+FinalData$treatment <- relevel(FinalData$treatment, ref = "placebo")
+
+# Filter data
+guy <- filter(FinalData, sex == "guy")
+gal <- filter(FinalData, sex == "gal")
+gay <- filter(FinalData, LGBTQ == "gay")
+Druguser <- filter(FinalData, DrugUser == "yes")
 ```
+
 
 # Introduction
 
@@ -47,28 +58,46 @@ In order to create the effectiveness interval for all four categories, each grou
 ### Barplot
 
 
-```{r}
-barchartGC(~infected + treatment,data=guy)
-barchartGC(~infected + treatment,data=guy, type="percent")
-
-```
-
 #### Plot barplots ggplot way
 
 ```{r}
-dd2 <- FinalData %>% group_by(infected,treatment) %>% summarize(count=n()) %>% mutate(prcnt=count/sum(count))
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
 
+# Data Preparation with Correct Percentage Calculation
+dd2 <- guy %>%
+  group_by(infected, treatment) %>%
+  summarize(count = n(), .groups = 'drop') %>%
+  group_by(infected) %>%  # Ensure percentages are calculated within each 'infected' group
+  mutate(prcnt = count / sum(count) * 100)  # Convert to percentage
 
-# the group_by followed by summarize(count=n())
+# Count Bar Plot
+basicC <- ggplot(dd2, aes(x = infected, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Count of Observations by Infected Status and Treatment",
+    x = "Infected Status",
+    y = "Count"
+  ) +
+  theme_minimal()
 
-basicC <- ggplot(dd2,aes(x=infected,y=count,fill=treatment))
-basicC + geom_bar(stat="identity",position="dodge")
+print(basicC)  # Ensure the plot is displayed
 
-#Now for percentage plot
+# Percentage Bar Plot
+basicCC <- ggplot(dd2, aes(x = infected, y = prcnt, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Percentage of Observations by Infected Status and Treatment",
+    x = "Infected Status",
+    y = "Percentage (%)"
+  ) +
+  theme_minimal()
 
-basicCC <- ggplot(dd2,aes(x=infected,y=prcnt*100,fill=treatment)) 
-basicCC + geom_bar(stat="identity", position = "dodge")
-```  
+print(basicCC)  # Ensure the plot is displayed
+
+```
+
 Our first observation will be made with a bar plots using the Guys data, to analyze the demographics of the infected percents and the percentage without the vaccine. The code we have available using ggplots, created two bar plots to investigate the treatments effectiveness. 
 
 The first slide is a charted demographic of the infected Guy patients, compared to being given the placebo and the vaccine. Here we can see that the Covid infection numbers on the left are incredibly low in comparison to the second set on the right. This might imply that the drug is effective to people not already displaying symptoms but we will need to observe more to tell.
@@ -79,9 +108,25 @@ The second slide displays the drastic percentile differences of the above mentio
 ### Numerical results
 
 ```{r}
-table1 <- xtabs(~infected + treatment, data=FinalData)
-rowPerc(table1)
-colPerc(table1)
+# Create a contingency table
+table1 <- xtabs(~infected + treatment, data = FinalData)
+
+# Convert to proportions
+table1_prop <- prop.table(table1)  # Overall proportions
+
+# Row percentages
+rowPerc <- prop.table(table1, margin = 1) * 100
+
+# Column percentages
+colPerc <- prop.table(table1, margin = 2) * 100
+
+# Print results
+print("Row Percentages:")
+print(rowPerc)
+
+print("Column Percentages:")
+print(colPerc)
+
 ```
   
 The first numerical significant data we will analyze will the this simple chart, the code above will display the ratio of infected and placebo-ed patients in the study. Using this count we can determine if there is a preliminary difference based on minimal data. 
@@ -94,42 +139,389 @@ In the treatment we are looking for covid positive patients, infected and placeb
 
 
 ```{r}
-chisq.test(table1)
-chisqtestGC(table1)
-guysfish <- fisher.test(table1)
-guysfish
+# Create a contingency table
+table1 <- xtabs(~infected + treatment, data = FinalData)
+
+# Perform Chi-Square Test
+chi_sq_test <- chisq.test(table1)
+print("Chi-Square Test Results:")
+print(chi_sq_test)
+
+# Perform Fisher's Exact Test
+fisher_test <- fisher.test(table1)
+print("Fisher's Exact Test Results:")
+print(fisher_test)
+
+# Ensure 'chisqtestGC()' function is defined if you want to use it
+# If you have a custom function `chisqtestGC()`, make sure it's defined or loaded.
+# Otherwise, you can skip this line if it's not needed.
+
 ```
   
 The first test we will use to differentiate the data in the Gals portion, will be the CHI-Squared and the Fisher test. Using the output of the Guys data, the CHI-Squared test will better format the p-value, the sample estimates and whether or not the alternative hypothesis is true to odds. 
 
-This chart tells us that the p-value is a drastically small number of 6e-04, (0.000000604). The sample estimates, in this case I am referring to 0.68. The confidence interval is 95%. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1. 
+This chart tells us that the p-value is a drastically small number of 6e-04, (0.000000604). The sample estimates, in this case I am referring to 0.68. The confidence interval is 95%, 1.9. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1. 
  
 
 
+## Females
+
+### Barplot
+
 ```{r}
-effect <- guysfish$p.value/(guysfish$p.value +1)
-effectivenessguy = guysfish$estimate/(guysfish$estimate +1)*100
-print(effectivenessguy)
+# Load necessary library
+library(tidyverse)
+
+# Data Preparation with Correct Percentage Calculation
+dd2 <- gal %>%
+  group_by(infected, treatment) %>%
+  summarize(count = n(), .groups = 'drop') %>%  # Ensure correct grouping
+  group_by(infected) %>%  # Re-group to calculate percentages within each 'infected' group
+  mutate(prcnt = count / sum(count) * 100)  # Convert to percentage
+
+# Count Plot
+basicC <- ggplot(dd2, aes(x = infected, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Count of Infected by Treatment",
+    x = "Infected Status",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+print(basicC)  # Ensure the plot is displayed
+
+# Percentage Plot
+basicCC <- ggplot(dd2, aes(x = infected, y = prcnt, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Percentage of Infected by Treatment",
+    x = "Infected Status",
+    y = "Percentage (%)"
+  ) +
+  theme_minimal()
+
+print(basicCC)  # Ensure the plot is displayed
+```
+
+  
+Our first observation will be made with a bar plots using the Gals data, to analyze the demographics of the infected percents and the percentage without the vaccine. The code we have available using ggplots, created two bar plots to investigate the treatments effectiveness. 
+
+The first slide is a charted demographic of the infected Gal patients, compared to being given the placebo and the vaccine. Here we can see that the Covid infection numbers on the left are incredibly high in comparison to the second set on the right. This might imply that the drug is ineffective to people not already displaying symptoms but we will need to observe more to tell.
+
+The second slide displays the drastic percentile differences of the above mentioned results. In this depiction, the placebo in covid patients should less symptoms than the drug. To gain a more accurate number we will approach this in segments to gather inferential and numerical results.
+
+### Numerical results
+
+```{r}
+# Assuming 'gal' is already loaded and contains 'infected' and 'treatment' columns
+# Create the contingency table
+table1 <- xtabs(~infected + treatment, data=gal)
+
+# Print the contingency table
+print(table1)
+
+# Calculate and print row percentages
+print("Row Percentages:")
+rowPerc <- prop.table(table1, 1) * 100
+print(rowPerc)
+
+# Calculate and print column percentages
+print("Column Percentages:")
+colPerc <- prop.table(table1, 2) * 100
+print(colPerc)
+
+```
+  
+The first numerical significant data we will analyze will the this simple chart, the code above will display the ratio of infected and placebo-ed patients in the study. Using this count we can determine if there is a preliminary difference based on minimal data. 
+
+In the treatment we are looking for covid positive patients, infected and placebo, who are reactive to the drug they were given. In this chart we can see that out of 100 randomly sampled patients, most Covid patients who were given the placebo showed symptoms. On the other hand there were 49 patients who were given the drug also showed symptoms of Covid. 
+
+
+### Inferential 
+
+
+```{r}
+galsfish <- fisher.test(table1)
+galsfish
+```
+  
+The first test we will use to differentiate the data in the Gals portion, the Fisher test. Using the output of the Guys data, it will better format the p-value, the sample estimates and whether or not the alternative hypothesis is true to odds. 
+
+This chart tells us that the p-value is a drastically low number of 7e-07, (0.000000707). The sample estimates, in this case I am referring to 4.3. The confidence interval is 95%, 2.2. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1. 
+
+
+```{r}
+effect <- galsfish$p.value/(galsfish$p.value +1)
+effectivenessgal = galsfish$estimate/(galsfish$estimate +1)*100
+print(effectivenessgal)
 ```
 
 ```{r}
-low=(guysfish$conf.int[1]/(guysfish$conf.int[1] +1))*100
-hi=(guysfish$conf.int[2]/(guysfish$conf.int[2] +1))*100
+low=(galsfish$conf.int[1]/(galsfish$conf.int[1] +1))*100
+hi=(galsfish$conf.int[2]/(galsfish$conf.int[2] +1))*100
 options(digits=2)
 ```
 
 ## Effectiveness Confidence Interval `r low`  to `r hi`
 
+The odds ratio of this chart shows 0 using this charted information.
 
-
-## Females
 
 
 ## LGBTQ
+### Barplot
+
+```{r}
+# Load necessary library
+library(tidyverse)
+
+# Data Preparation with Correct Percentage Calculation
+dd2 <- gay %>%
+  group_by(infected, treatment) %>%
+  summarize(count = n(), .groups = 'drop') %>%  # Ensure correct grouping
+  group_by(infected) %>%  # Re-group to calculate percentages within each 'infected' group
+  mutate(prcnt = count / sum(count) * 100)  # Convert to percentage
+
+# Count Plot
+basicC <- ggplot(dd2, aes(x = infected, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Count of Infected by Treatment",
+    x = "Infected Status",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+print(basicC)  # Ensure the plot is displayed
+
+# Percentage Plot
+basicCC <- ggplot(dd2, aes(x = infected, y = prcnt, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Percentage of Infected by Treatment",
+    x = "Infected Status",
+    y = "Percentage (%)"
+  ) +
+  theme_minimal()
+
+print(basicCC)  # Ensure the plot is displayed
+```
+  
+Our first observation will be made with a bar plots using the Druggies data, to analyze the demographics of the infected percents and the percentage without the vaccine. The code we have available using ggplots, created two bar plots to investigate the treatments effectiveness. 
+
+The first slide is a charted demographic of the infected Druggies patients, compared to being given the placebo and the vaccine. Here we can see that the Covid infection numbers on the left are incredibly low in comparison to the second set on the left. This might imply that the drug is incredibly effective to people not already displaying symptoms but we will need to observe more to tell.
+
+The second slide displays the drastic percentile differences of the above mentioned results. In this depiction, the placebo in covid patients should less symptoms than the drug. To gain a more accurate number we will approach this in segments to gather inferential and numerical results.
+
+
+
+
+
+### Numerical results
+
+```{r}
+table1 <- xtabs(~infected + treatment, data=gay)
+
+# Print the contingency table
+print(table1)
+
+# Calculate and print row percentages
+print("Row Percentages:")
+rowPerc <- prop.table(table1, 1) * 100
+print(rowPerc)
+
+# Calculate and print column percentages
+print("Column Percentages:")
+colPerc <- prop.table(table1, 2) * 100
+print(colPerc)
+
+```
+  
+The first numerical significant data we will analyze will the this simple chart, the code above will display the ratio of infected and placebo-ed patients in the study. Using this count we can determine if there is a preliminary difference based on minimal data. 
+
+In the treatment we are looking for covid positive patients, infected and placebo, who are reactive to the drug they were given. In this chart we can see that out of 100 randomly sampled patients, most Covid patients who were given the placebo showed symptoms. On the other hand there were 80 patients who were given the drug also showed symptoms of Covid. 
+
+
+
+### Inferential 
+
+```{r}
+# Load necessary library
+# library(gmodels)  # If needed for previous rowPerc and colPerc functions
+
+# Assuming 'gal' is already loaded and contains 'infected' and 'treatment' columns
+# Create the contingency table
+table1 <- xtabs(~infected + treatment, data=gal)
+
+# Perform Fisher's Exact Test
+fish_result <- fisher.test(table1)
+print("Fisher's Exact Test Result:")
+print(fish_result)
+
+```
+  
+The first test we will use to differentiate the data in the Gals portion will be the Fisher test. Using the output of the Guys data, it will better format the p-value, the sample estimates and whether or not the alternative hypothesis is true to odds. 
+
+This chart tells us that the p-value is a drastically small number of 7e-07, (0.0000000707). The sample estimates, in this case I am referring to 4.3. The confidence interval is 95%, 2.2. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1. 
+
+
+```{r}
+
+# Assuming 'gal' is already loaded and contains 'infected' and 'treatment' columns
+# Create the contingency table
+table1 <- xtabs(~infected + treatment, data=gal)
+
+# Print the contingency table
+print("Contingency Table:")
+print(table1)
+
+# Calculate and print row percentages
+print("Row Percentages:")
+rowPerc <- prop.table(table1, 1) * 100
+print(rowPerc)
+
+# Calculate and print column percentages
+print("Column Percentages:")
+colPerc <- prop.table(table1, 2) * 100
+print(colPerc)
+
+
+# Perform Fisher's Exact Test
+fish_result <- fisher.test(table1)
+print("Fisher's Exact Test Result:")
+print(fish_result)
+
+# Calculate 'effect' using p-value from Fisher's Exact Test
+effect <- fish_result$p.value / (fish_result$p.value + 1)
+
+# Calculate 'effectivenessgays' using odds ratio from Fisher's Exact Test (if applicable)
+# Note: Fisher's test result includes odds ratio only if the table is 2x2
+if (!is.null(fish_result$estimate)) {
+  effectivenessgays <- (fish_result$estimate / (fish_result$estimate + 1)) * 100
+  print("Effectivenessgays (%):")
+  print(effectivenessgays)
+} else {
+  print("No odds ratio available for this table.")
+}
+
+# Print 'effect'
+print("Effect:")
+print(effect)
+
+```
+
+## Effectiveness Confidence Interval `r low`  to `r hi`
+
+The odds ratio of this chart shows 81 using this charted information.
 
 
 
 ## Druggies
+### Barplot
+
+
+```{r}
+# Load necessary library
+library(tidyverse)
+
+# Data Preparation with Correct Percentage Calculation
+dd2 <- Druguser %>%
+  group_by(infected, treatment) %>%
+  summarize(count = n(), .groups = 'drop') %>%  # Ensure correct grouping
+  group_by(infected) %>%  # Re-group to calculate percentages within each 'infected' group
+  mutate(prcnt = count / sum(count) * 100)  # Convert to percentage
+
+# Count Plot
+basicC <- ggplot(dd2, aes(x = infected, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Count of Infected by Treatment",
+    x = "Infected Status",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+print(basicC)  # Ensure the plot is displayed
+
+# Percentage Plot
+basicCC <- ggplot(dd2, aes(x = infected, y = prcnt, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Percentage of Infected by Treatment",
+    x = "Infected Status",
+    y = "Percentage (%)"
+  ) +
+  theme_minimal()
+
+print(basicCC)  # Ensure the plot is displayed
+```
+  
+Our first observation will be made with a bar plots using the Druggies data, to analyze the demographics of the infected percents and the percentage without the vaccine. The code we have available using ggplots, created two bar plots to investigate the treatments effectiveness. 
+
+The first slide is a charted demographic of the infected Druggies patients, compared to being given the placebo and the vaccine. Here we can see that the Covid infection numbers on the left are incredibly low in comparison to the second set on the left, the blue bar. This might imply that the drug is ineffective to people but we will need to observe more to tell.
+
+The second slide displays the drastic percentile differences of the above mentioned results. In this depiction, the placebo in covid patients should less symptoms than the drug. To gain a more accurate number we will approach this in segments to gather inferential and numerical results.
+
+
+
+### Numerical results
+
+```{r}
+# Create the contingency table
+table1 <- xtabs(~infected + treatment, data = Druguser)
+
+# Print the table
+print(table1)
+
+# Calculate and print the row percentages
+rowPerc <- prop.table(table1, margin = 1) * 100
+print(rowPerc)
+
+# Calculate and print the column percentages
+colPerc <- prop.table(table1, margin = 2) * 100
+print(colPerc)
+
+```
+ 
+The first numerical significant data we will analyze will the this simple chart, the code above will display the ratio of infected and placebo-ed patients in the study. Using this count we can determine if there is a preliminary difference based on minimal data. 
+
+In the treatment we are looking for covid positive patients, infected and placebo, who are reactive to the drug they were given. In this chart we can see that out of 100 randomly sampled patients, most Covid patients who were given the placebo showed symptoms. On the other hand there were 8.3 patients who were given the drug also showed symptoms of Covid.  
+
+
+### Inferential 
+
+
+```{r}
+drugfish <- fisher.test(table1)
+drugfish
+```
+  
+The first test we will use to differentiate the data in the Gals portion, will be the Fisher test. Using the output of the Druggies data, the test will better format the p-value, the sample estimates and whether or not the alternative hypothesis is true to odds. 
+
+This chart tells us that the p-value is a drastically small number of 3e-12, (0.000312). The sample estimates, in this case I am referring to 0.087. The confidence interval is 95%, 0.027. The alternative hypothesis under the Fisher test is true to odds. The reason for this is that the ratio is not equal to 1.
+
+
+
+```{r}
+effect <- drugfish$p.value/(drugfish$p.value +1)
+effectivenessdrug = drugfish$estimate/(drugfish$estimate +1)*100
+print(effectivenessdrug)
+```
+
+```{r}
+low=(drugfish$conf.int[1]/(drugfish$conf.int[1] +1))*100
+hi=(drugfish$conf.int[2]/(drugfish$conf.int[2] +1))*100
+options(digits=2)
+```
+
+## Effectiveness Confidence Interval `r low`  to `r hi`
+
+The odds ratio of this chart shows 8 using this charted information.
+
 
 
 # Overall Results and Conclusions
+
+
+
